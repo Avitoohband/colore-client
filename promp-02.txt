@@ -1,0 +1,26 @@
+Now build out the UI and logic for the local-only AI storytelling game.
+
+Requirements:
+✅ Use Zustand for game state:
+  - players: array of { id, name }
+  - currentTurn: number
+  - storyLog: array of { sender, content, type: 'story' }
+  - chatLog: array of { sender, content, type: 'chat' }
+  - actions: addPlayer, addStoryMessage, addChatMessage, nextTurn
+
+UI Components:
+- <TurnIndicator /> — shows which player's turn it is
+- <StoryLog /> — shows full story (AI + player messages)
+- <PlayerChat /> — shows separate chat between players (not sent to AI)
+- <PlayerInput /> — only the current player sees the AI input box
+- <ChatInput /> — for player-only chat (always visible)
+
+Layout:
+- Top: game title + turn indicator
+- Center-left: story log (scrollable)
+- Center-right: player chat
+- Bottom: input areas (story input if it's your turn, chat input always)
+
+No backend, no API calls yet — use dummy AI responses for now.
+Use Tailwind CSS to style everything simply but cleanly.
+Make layout responsive (mobile/tablet compatible).

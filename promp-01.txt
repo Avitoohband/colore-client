@@ -1,0 +1,29 @@
+Create a local-only, browser-based storytelling game using Next.js (App Router), Tailwind CSS, and Zustand.
+
+🧩 Game Description:
+- Multiplayer on same device (local play only)
+- Players take turns typing actions into a chat to co-create a story
+- An AI (e.g., Hugging Face API) generates the next part of the story based on input
+- The game manages player turns, logs story messages and private player chat
+
+📁 Folder structure:
+- /app/page.tsx — main game layout
+- /components/PlayerInput.tsx — input field shown only to current player
+- /components/StoryLog.tsx — displays AI and player story messages
+- /components/PlayerChat.tsx — separate chat between players not seen by AI
+- /components/TurnIndicator.tsx — displays current player's name
+- /store/gameStore.ts — Zustand store to manage game state
+
+📦 Zustand state should include:
+- players: array of { id, name }
+- currentTurn: number (index of current player)
+- storyLog: array of { sender, content, type: 'story' }
+- chatLog: array of { sender, content, type: 'chat' }
+- actions: addPlayer, addStoryMessage, addChatMessage, nextTurn
+
+💡 Initial UI:
+- Turn indicator at top
+- Story log in center scrollable panel
+- Input field (story) visible only to current player
+- Separate chat input + panel for player-only messages
+- No backend, no login, no online functionality
