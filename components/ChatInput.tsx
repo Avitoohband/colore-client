@@ -2,11 +2,14 @@
 
 import React, { useState } from 'react'
 import { useGameStore } from '@/store/gameStore'
+import { useNarrator } from '@/hooks/useNarrator'
 
 export default function ChatInput() {
   const { players, addChatMessage, isGameStarted } = useGameStore()
   const [chatInput, setChatInput] = useState('')
   const [selectedPlayer, setSelectedPlayer] = useState('')
+  const { stop } = useNarrator()
+  const [wasTyping, setWasTyping] = useState(false)
 
   // Set default player when players change
   React.useEffect(() => {
@@ -50,7 +53,18 @@ export default function ChatInput() {
           <input
             type="text"
             value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
+            onChange={(e) => {
+              const newValue = e.target.value
+              setChatInput(newValue)
+              
+              // Stop narration when user starts typing (not just focusing)
+              if (newValue.length > 0 && !wasTyping) {
+                stop()
+                setWasTyping(true)
+              } else if (newValue.length === 0) {
+                setWasTyping(false)
+              }
+            }}
             placeholder="Type a message..."
             className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-w-0 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
           />

@@ -7,17 +7,20 @@ import StoryLog from '@/components/StoryLog'
 import PlayerInput from '@/components/PlayerInput'
 import PlayerChat from '@/components/PlayerChat'
 import ChatInput from '@/components/ChatInput'
+import NarratorIcon from '@/components/NarratorIcon'
 
 export default function Home() {
   const { 
     players, 
     isGameStarted, 
     isDarkMode,
+    narrateEnabled,
     addPlayer, 
     removePlayer, 
     startGame, 
     resetGame,
-    toggleDarkMode 
+    toggleDarkMode,
+    toggleNarrate 
   } = useGameStore()
   const [newPlayerName, setNewPlayerName] = useState('')
 
@@ -192,6 +195,18 @@ export default function Home() {
             </div>
             <div className="flex items-center space-x-4">
               <TurnIndicator />
+              {/* Narrator Toggle */}
+              <button
+                onClick={toggleNarrate}
+                className={`p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-colors duration-200 ${
+                  narrateEnabled 
+                    ? 'bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400' 
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                }`}
+                title={narrateEnabled ? 'Disable voice narration' : 'Enable voice narration'}
+              >
+                🗣️
+              </button>
               {/* Dark Mode Toggle */}
               <button
                 onClick={toggleDarkMode}
@@ -252,6 +267,9 @@ export default function Home() {
           </div>
         </div>
       </div>
+      
+      {/* Narrator Icon */}
+      <NarratorIcon />
     </div>
   )
 }

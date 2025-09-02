@@ -19,6 +19,8 @@ interface GameState {
   chatLog: Message[]
   isGameStarted: boolean
   isDarkMode: boolean
+  narrateEnabled: boolean
+  isSpeaking: boolean
 }
 
 interface GameActions {
@@ -30,6 +32,8 @@ interface GameActions {
   startGame: () => void
   resetGame: () => void
   toggleDarkMode: () => void
+  toggleNarrate: () => void
+  setIsSpeaking: (speaking: boolean) => void
 }
 
 type GameStore = GameState & GameActions
@@ -42,6 +46,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   chatLog: [],
   isGameStarted: false,
   isDarkMode: false,
+  narrateEnabled: true,
+  isSpeaking: false,
 
   // Actions
   addPlayer: (name: string) => {
@@ -121,5 +127,55 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
       return { isDarkMode: newDarkMode }
     })
+  },
+
+  toggleNarrate: () => {
+    set((state) => {
+      const newNarrateEnabled = !state.narrateEnabled
+      
+      // If enabling narration, trigger narration of last AI message
+      if (newNarrateEnabled && typeof window !== 'undefined') {
+        // Find the last AI Narrator message
+        const lastAIMessage = [...state.storyLog]
+          .reverse()
+          .find(message => message.sender === 'AI Narrator')
+        
+        if (lastAIMessage) {
+          // Use setTimeout to ensure the state update happens first
+          setTimeout(() => {
+            if ('speechSynthesis' in window && window.speechSynthesis) {
+              const utterance = new SpeechSynthesisUtterance(lastAIMessage.content)
+              utterance.rate = 0.9
+              utterance.pitch = 1
+              utterance.volume = 0.8
+              
+              utterance.onstart = () => {
+                // Update isSpeaking state
+                const currentState = get()
+                if (currentState.narrateEnabled) {
+                  set({ isSpeaking: true })
+                }
+              }
+              
+              utterance.onend = () => {
+                set({ isSpeaking: false })
+              }
+              
+              utterance.onerror = () => {
+                set({ isSpeaking: false })
+              }
+              
+              window.speechSynthesis.speak(utterance)
+            }
+          }, 100)
+        }
+      }
+      
+      return { narrateEnabled: newNarrateEnabled }
+    })
+  },
+
+  setIsSpeaking: (speaking: boolean) => {
+    set({ isSpeaking: speaking })
   }
 }))

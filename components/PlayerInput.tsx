@@ -2,11 +2,15 @@
 
 import { useGameStore } from '@/store/gameStore'
 import { useState } from 'react'
+import { queryOllama, generateOpeningStory } from '@/utils/queryOllama'
+import { useNarrator } from '@/hooks/useNarrator'
 
 export default function PlayerInput() {
-  const { players, currentTurn, isGameStarted, addStoryMessage, nextTurn } = useGameStore()
+  const { players, currentTurn, isGameStarted, storyLog, addStoryMessage, nextTurn } = useGameStore()
   const [input, setInput] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const { stop } = useNarrator()
+  const [wasTyping, setWasTyping] = useState(false)
 
   if (!isGameStarted || players.length === 0) {
     return null
@@ -23,24 +27,27 @@ export default function PlayerInput() {
     // Add player's action to story
     addStoryMessage(currentPlayer.name, input.trim())
     
-    // Simulate AI response (replace with actual AI API call)
-    setTimeout(() => {
-      const aiResponses = [
-        "The mysterious door creaks open, revealing a swirling vortex of colors beyond...",
-        "Suddenly, a wise old owl perches nearby and speaks: 'That was quite clever!'",
-        "The ground trembles slightly as your action sets something ancient into motion...",
-        "A gentle breeze carries the scent of adventure and distant lands...",
-        "The shadows dance as if responding to your bold move...",
-        "In the distance, you hear the faint sound of laughter - or is it music?",
-        "The very air seems to shimmer with possibility after what you've done...",
-        "A small, glowing creature emerges from hiding, clearly intrigued by your actions...",
-      ]
+    // Call AI to generate response
+    try {
+      let aiResponse: string
       
-      const randomResponse = aiResponses[Math.floor(Math.random() * aiResponses.length)]
-      addStoryMessage('AI Narrator', randomResponse)
+      // Check if this is the first action (story is empty)
+      if (storyLog.length === 1) { // Only player's action exists
+        // Generate opening story that incorporates the player's first action
+        aiResponse = await generateOpeningStory(input.trim())
+      } else {
+        // Build full prompt with story history and new player action
+        const storyHistory = storyLog.map(message => `${message.sender}: ${message.content}`).join('\n')
+        aiResponse = await queryOllama(storyHistory)
+      }
       
+      addStoryMessage('AI Narrator', aiResponse)
+    } catch (error) {
+      console.error('Error getting AI response:', error)
+      addStoryMessage('AI Narrator', "I'm not sure what happens next.")
+    } finally {
       setIsSubmitting(false)
-    }, 1500)
+    }
 
     setInput('')
     nextTurn()
@@ -57,7 +64,18 @@ export default function PlayerInput() {
         <div>
           <textarea
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              const newValue = e.target.value
+              setInput(newValue)
+              
+              // Stop narration when user starts typing (not just focusing)
+              if (newValue.length > 0 && !wasTyping) {
+                stop()
+                setWasTyping(true)
+              } else if (newValue.length === 0) {
+                setWasTyping(false)
+              }
+            }}
             placeholder="I decide to..."
             className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
             rows={2}

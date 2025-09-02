@@ -2,16 +2,36 @@
 
 import { useGameStore } from '@/store/gameStore'
 import { useEffect, useRef } from 'react'
+import { useNarrator } from '@/hooks/useNarrator'
 
 export default function StoryLog() {
   const { storyLog } = useGameStore()
   const scrollRef = useRef<HTMLDivElement>(null)
+  const { speak } = useNarrator()
+  const lastMessageRef = useRef<number>(0)
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [storyLog])
+
+  // Narrate new AI messages
+  useEffect(() => {
+    if (storyLog.length > lastMessageRef.current) {
+      const newMessages = storyLog.slice(lastMessageRef.current)
+      const latestAIMessage = newMessages.find(message => message.sender === 'AI Narrator')
+      
+      if (latestAIMessage) {
+        // Small delay to ensure the message is displayed first
+        setTimeout(() => {
+          speak(latestAIMessage.content)
+        }, 100)
+      }
+      
+      lastMessageRef.current = storyLog.length
+    }
+  }, [storyLog, speak])
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 flex flex-col h-full">
