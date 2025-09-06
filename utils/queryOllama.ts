@@ -1,22 +1,49 @@
-// Prompt templates for different story phases
+// Simple, accessible prompt templates for all players
+const baseSystemInstruction = `
+You're a story narrator. Always respond in short, simple English. Use no more than 2–3 sentences. Avoid long or complex words. Keep it easy and fun to follow.
+`;
+
 const openingPrompt = `
-You're a narrator for a collaborative storytelling game. Start a new adventure with a magical, mysterious setting. 
-Use vivid language but keep it short—no more than 4 sentences. End your description with a question that invites the player to act.
+${baseSystemInstruction}
+
+Start a new adventure. Set the scene in simple words. Describe where the players are and what they see. Don't ask questions or tell them what to do.
 `;
 
 const systemPrompt = `
-You are a narrator in a collaborative fantasy game. 
-Your role is to respond to player actions with vivid, concise story beats.
-Keep your replies under 4–5 sentences. End with an open-ended question or invitation to act.
+${baseSystemInstruction}
+
+Tell what happens after the player's action. Keep it short and simple. Don't ask questions or give suggestions. Let players choose what to do next.
 `;
 
 /**
  * Generate an opening story for a new adventure
  * @param playerAction Optional first player action to incorporate
+ * @param genre Optional genre for the story
+ * @param customBackstory Optional custom backstory
  * @returns Promise that resolves to the opening story text
  */
-export async function generateOpeningStory(playerAction?: string): Promise<string> {
+export async function generateOpeningStory(playerAction?: string, genre?: string, customBackstory?: string): Promise<string> {
   try {
+    // Build the prompt based on setup options
+    let prompt = ''
+    
+    if (customBackstory) {
+      prompt = `${baseSystemInstruction}
+
+Use this backstory to start the story:
+${customBackstory}
+
+${playerAction ? `The first player decides to: ${playerAction}\n\n` : ''}Start the adventure using simple words. Describe where the players are and what they see${playerAction ? ' and what happens from their action' : ''}. Keep it short and easy to understand.`
+    } else if (genre) {
+      prompt = `${baseSystemInstruction}
+
+Start a ${genre} adventure. ${playerAction ? `The first player decides to: ${playerAction}\n\n` : ''}Describe the scene in simple words. Tell where the players are and what they see${playerAction ? ' and what happens from their action' : ''}. Keep it short and fun.`
+    } else {
+      prompt = playerAction 
+        ? `${openingPrompt}\n\nThe first player decides to: ${playerAction}\n\nStart the story and include what happens from their action.`
+        : openingPrompt
+    }
+
     const response = await fetch('http://localhost:11434/api/generate', {
       method: 'POST',
       headers: {
@@ -24,9 +51,7 @@ export async function generateOpeningStory(playerAction?: string): Promise<strin
       },
       body: JSON.stringify({
         model: 'mistral',
-        prompt: playerAction 
-          ? `${openingPrompt}\n\nThe first player decides to: ${playerAction}\n\nNow create an opening that sets the scene and incorporates this action.`
-          : openingPrompt,
+        prompt: prompt,
         stream: false,
       }),
     });
@@ -44,17 +69,34 @@ export async function generateOpeningStory(playerAction?: string): Promise<strin
     }
   } catch (error) {
     console.error('Error generating opening story:', error);
-    return "You find yourself standing at the edge of an enchanted forest, where ancient trees whisper secrets in the wind. Mysterious lights dance between the branches, and a winding path disappears into the shadows ahead. The air hums with magical energy, and you sense that great adventures await. What do you choose to do first?";
+    return "You stand at the edge of a magic forest. Strange lights float between the trees. A path leads into the dark woods.";
   }
 }
 
 /**
  * Utility function to query a local Mistral model using Ollama with story context
  * @param storyContext The full story history and player action
+ * @param genre Optional genre to maintain consistency
+ * @param customBackstory Optional custom backstory for context
  * @returns Promise that resolves to the generated text
  */
-export async function queryOllama(storyContext: string): Promise<string> {
+export async function queryOllama(storyContext: string, genre?: string, customBackstory?: string): Promise<string> {
   try {
+    // Build context-aware system prompt
+    let contextPrompt = systemPrompt
+    
+    if (customBackstory) {
+      contextPrompt = `${baseSystemInstruction}
+
+This story uses this backstory: ${customBackstory}
+
+Tell what happens after the player's action. Stay true to this world. Use simple words and keep it short.`
+    } else if (genre) {
+      contextPrompt = `${baseSystemInstruction}
+
+This is a ${genre} story. Tell what happens after the player's action. Keep the ${genre} style but use simple words.`
+    }
+
     const response = await fetch('http://localhost:11434/api/generate', {
       method: 'POST',
       headers: {
@@ -62,7 +104,7 @@ export async function queryOllama(storyContext: string): Promise<string> {
       },
       body: JSON.stringify({
         model: 'mistral',
-        prompt: `${systemPrompt}\n\nStory Context:\n${storyContext}`,
+        prompt: `${contextPrompt}\n\nStory Context:\n${storyContext}`,
         stream: false,
       }),
     });

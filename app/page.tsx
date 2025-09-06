@@ -1,28 +1,59 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useGameStore } from '@/store/gameStore'
+import { useThemeInit } from '@/hooks/useThemeInit'
 import TurnIndicator from '@/components/TurnIndicator'
 import StoryLog from '@/components/StoryLog'
 import PlayerInput from '@/components/PlayerInput'
 import PlayerChat from '@/components/PlayerChat'
 import ChatInput from '@/components/ChatInput'
 import NarratorIcon from '@/components/NarratorIcon'
+import GameSetupModal from '@/components/GameSetupModal'
+import TranslationModal from '@/components/TranslationModal'
 
 export default function Home() {
+  // Initialize theme from localStorage
+  useThemeInit()
+  
   const { 
     players, 
     isGameStarted, 
     isDarkMode,
     narrateEnabled,
+    showSetupModal,
+    isGeneratingStory,
+    storyTitle,
+    showTranslationModal,
     addPlayer, 
     removePlayer, 
     startGame, 
     resetGame,
     toggleDarkMode,
-    toggleNarrate 
+    toggleNarrate,
+    setShowSetupModal,
+    setGameSetup,
+    setIsGeneratingStory,
+    setShowTranslationModal 
   } = useGameStore()
   const [newPlayerName, setNewPlayerName] = useState('')
+
+  // Keyboard shortcut for opening translator (Ctrl+Alt+T)
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Check for Ctrl+Alt+T (or Cmd+Alt+T on Mac)
+      if ((event.ctrlKey || event.metaKey) && event.altKey && (event.key === 't' || event.key === 'T')) {
+        event.preventDefault()
+        event.stopPropagation()
+        console.log('Ctrl+Alt+T pressed - opening translation modal')
+        setShowTranslationModal(true)
+      }
+    }
+
+    // Add listener to document with capture to catch it early
+    document.addEventListener('keydown', handleKeyDown, true)
+    return () => document.removeEventListener('keydown', handleKeyDown, true)
+  }, [setShowTranslationModal])
 
   const handleAddPlayer = (e: React.FormEvent) => {
     e.preventDefault()
@@ -34,7 +65,32 @@ export default function Home() {
 
   const handleStartGame = () => {
     if (players.length >= 2) {
-      startGame()
+      setShowSetupModal(true)
+    }
+  }
+
+  const handleStorySetup = async (mode: 'genre' | 'custom', value: string, title?: string) => {
+    setGameSetup(mode, value, title)
+    startGame()
+    setIsGeneratingStory(true)
+    
+    // Generate opening story immediately
+    const { generateOpeningStory } = await import('@/utils/queryOllama')
+    try {
+      const aiResponse = await generateOpeningStory(
+        undefined, // no player action yet
+        mode === 'genre' ? value : '',
+        mode === 'custom' ? value : ''
+      )
+      // Add the opening story to the log
+      const { addStoryMessage } = useGameStore.getState()
+      addStoryMessage('AI Narrator', aiResponse)
+    } catch (error) {
+      console.error('Error generating opening story:', error)
+      const { addStoryMessage } = useGameStore.getState()
+      addStoryMessage('AI Narrator', "The adventure begins in a mysterious place filled with endless possibilities...")
+    } finally {
+      setIsGeneratingStory(false)
     }
   }
 
@@ -46,21 +102,30 @@ export default function Home() {
           <div className="text-center mb-8">
             <div className="flex justify-between items-center mb-4">
               <div></div>
-              <button
-                onClick={toggleDarkMode}
-                className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-colors duration-200"
-                title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-              >
-                {isDarkMode ? (
-                  <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5 text-gray-700" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-                  </svg>
-                )}
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setShowTranslationModal(true)}
+                  className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200"
+                  title="Open translator (Ctrl+Alt+T)"
+                >
+                  <span className="text-lg">🌐</span>
+                </button>
+                <button
+                  onClick={toggleDarkMode}
+                  className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-colors duration-200"
+                  title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+                >
+                  {isDarkMode ? (
+                    <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5 text-gray-700" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
             <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-100 mb-2">
               🎭 CoLore
@@ -175,6 +240,51 @@ export default function Home() {
             </ul>
           </div>
         </div>
+
+        {/* Game Setup Modal */}
+        <GameSetupModal 
+          isOpen={showSetupModal}
+          onClose={() => setShowSetupModal(false)}
+          onStartStory={handleStorySetup}
+        />
+
+        {/* Translation Modal */}
+        <TranslationModal 
+          isOpen={showTranslationModal}
+          onClose={() => setShowTranslationModal(false)}
+        />
+      </div>
+    )
+  }
+
+  // Show loading screen if game started but story is being generated
+  if (isGameStarted && isGeneratingStory) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+        <div className="text-center p-8">
+          <div className="mb-8">
+            <div className="relative">
+              <div className="w-20 h-20 mx-auto mb-4">
+                <div className="absolute inset-0 border-4 border-purple-200 dark:border-purple-800 rounded-full"></div>
+                <div className="absolute inset-0 border-4 border-purple-600 dark:border-purple-400 rounded-full border-t-transparent animate-spin"></div>
+              </div>
+              <div className="text-6xl mb-4">🎭</div>
+            </div>
+          </div>
+          
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">
+            Creating Your Adventure
+          </h1>
+          <p className="text-lg text-gray-600 dark:text-gray-300 mb-6">
+            The AI Narrator is crafting the perfect opening scene...
+          </p>
+          
+          <div className="flex items-center justify-center space-x-2 text-purple-600 dark:text-purple-400">
+            <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+            <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+            <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+          </div>
+        </div>
       </div>
     )
   }
@@ -189,12 +299,27 @@ export default function Home() {
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">
                 🎭 CoLore
               </h1>
-              <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">
-                Collaborative Storytelling in Progress
-              </p>
+              <div className="space-y-1">
+                {storyTitle && (
+                  <p className="text-lg font-semibold text-purple-600 dark:text-purple-400">
+                    {storyTitle}
+                  </p>
+                )}
+                <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">
+                  Collaborative Storytelling in Progress
+                </p>
+              </div>
             </div>
             <div className="flex items-center space-x-4">
               <TurnIndicator />
+              {/* Translate Button */}
+              <button
+                onClick={() => setShowTranslationModal(true)}
+                className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200"
+                title="Open translator (Ctrl+T)"
+              >
+                🌐
+              </button>
               {/* Narrator Toggle */}
               <button
                 onClick={toggleNarrate}
@@ -219,7 +344,7 @@ export default function Home() {
                   </svg>
                 ) : (
                   <svg className="w-5 h-5 text-gray-700" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                    <path d="M17.293 13.293A8 8 0 716.707 2.707a8.001 8.001 0 1010.586 10.586z" />
                   </svg>
                 )}
               </button>
@@ -270,6 +395,12 @@ export default function Home() {
       
       {/* Narrator Icon */}
       <NarratorIcon />
+
+      {/* Translation Modal */}
+      <TranslationModal 
+        isOpen={showTranslationModal}
+        onClose={() => setShowTranslationModal(false)}
+      />
     </div>
   )
 }

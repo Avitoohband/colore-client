@@ -2,11 +2,11 @@
 
 import { useGameStore } from '@/store/gameStore'
 import { useState } from 'react'
-import { queryOllama, generateOpeningStory } from '@/utils/queryOllama'
+import { queryOllama } from '@/utils/queryOllama'
 import { useNarrator } from '@/hooks/useNarrator'
 
 export default function PlayerInput() {
-  const { players, currentTurn, isGameStarted, storyLog, addStoryMessage, nextTurn } = useGameStore()
+  const { players, currentTurn, isGameStarted, storyLog, selectedGenre, customBackstory, addStoryMessage, nextTurn } = useGameStore()
   const [input, setInput] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { stop } = useNarrator()
@@ -29,17 +29,9 @@ export default function PlayerInput() {
     
     // Call AI to generate response
     try {
-      let aiResponse: string
-      
-      // Check if this is the first action (story is empty)
-      if (storyLog.length === 1) { // Only player's action exists
-        // Generate opening story that incorporates the player's first action
-        aiResponse = await generateOpeningStory(input.trim())
-      } else {
-        // Build full prompt with story history and new player action
-        const storyHistory = storyLog.map(message => `${message.sender}: ${message.content}`).join('\n')
-        aiResponse = await queryOllama(storyHistory)
-      }
+      // Build full prompt with story history and new player action
+      const storyHistory = storyLog.map(message => `${message.sender}: ${message.content}`).join('\n')
+      const aiResponse = await queryOllama(storyHistory, selectedGenre, customBackstory)
       
       addStoryMessage('AI Narrator', aiResponse)
     } catch (error) {
